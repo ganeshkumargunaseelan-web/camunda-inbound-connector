@@ -1,0 +1,27 @@
+{
+  "_comment": "Telegram Bot API Webhook - Text Message Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+  "_documentation": "https://core.telegram.org/bots/api#update",
+
+  "update_id": 123456789,
+  "message": {
+    "message_id": 1001,
+    "from": {
+      "id": 123456789,
+      "is_bot": false,
+      "first_name": "Ahmed",
+      "last_name": "Ali",
+      "username": "ahmedali",
+      "language_code": "ar"
+    },
+    "chat": {
+      "id": 123456789,
+      "first_name": "Ahmed",
+      "last_name": "Ali",
+      "username": "ahmedali",
+      "type": "private"
+    },
+    "date": 1706706600,
+    "text": "مرحباً، أريد الاستفسار عن خدماتكم"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_comment": "Unifonic SMS Webhook Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+  "_documentation": "https://docs.unifonic.com/",
+
+  "MessageID": "unifonic-msg-123456789",
+  "SenderID": "+971558160396",
+  "Recipient": "8899",
+  "Body": "أريد تتبع طلبي ORDER-789012",
+  "ReceivedTime": "2025-01-31 14:30:45",
+  "Encoding": "UTF-8",
+  "MessageType": "MO"
+}

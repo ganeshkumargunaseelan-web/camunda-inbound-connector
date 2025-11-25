@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Order Tracking Process - Sample BPMN for Inbound Messaging Connector
+
+  This process shows message correlation - how follow-up messages from
+  a customer can be routed to an already-running process instance.
+
+  Uses senderPhone as the correlation key to match messages to orders.
+
+  Author: G. Ganesh Kumar, Solution Architect
+  Contact: +971-55 816 0396 | +91-95000 03051 | ganeshkumargunaseelan@gmail.com
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_OrderTracking"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="order-tracking-process" name="Order Tracking Process" isExecutable="true">
+
+    <!-- Start Event -->
+    <bpmn:startEvent id="StartEvent_1" name="Order Created">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Task: Process Order -->
+    <bpmn:serviceTask id="Task_ProcessOrder" name="Process Order">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="process-order" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Intermediate Message Event: Wait for Customer Update -->
+    <bpmn:intermediateCatchEvent id="Event_WaitForMessage" name="Wait for Customer Message">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:incoming>Flow_Loop</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDef_1" messageRef="Message_CustomerUpdate" />
+    </bpmn:intermediateCatchEvent>
+
+    <!-- Gateway: Check Message Type -->
+    <bpmn:exclusiveGateway id="Gateway_CheckType" name="Message Type?">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToStatus</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToCancel</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToOther</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Task: Send Status Update -->
+    <bpmn:serviceTask id="Task_SendStatus" name="Send Order Status">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="send-message" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=channel" target="channel" />
+          <zeebe:input source="=senderPhone" target="recipient" />
+          <zeebe:input source="=&#34;Your order &#34; + orderId + &#34; is: &#34; + orderStatus" target="message" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToStatus</bpmn:incoming>
+      <bpmn:outgoing>Flow_StatusDone</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Task: Cancel Order -->
+    <bpmn:serviceTask id="Task_CancelOrder" name="Cancel Order">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="cancel-order" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToCancel</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Task: Handle Other -->
+    <bpmn:serviceTask id="Task_HandleOther" name="Handle Other Request">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="handle-request" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToOther</bpmn:incoming>
+      <bpmn:outgoing>Flow_OtherDone</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Gateway: Merge and Loop -->
+    <bpmn:exclusiveGateway id="Gateway_Continue" name="Continue?">
+      <bpmn:incoming>Flow_StatusDone</bpmn:incoming>
+      <bpmn:incoming>Flow_OtherDone</bpmn:incoming>
+      <bpmn:outgoing>Flow_Loop</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- End Event -->
+    <bpmn:endEvent id="EndEvent_1" name="Order Completed">
+      <bpmn:incoming>Flow_ToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_ProcessOrder" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_ProcessOrder" targetRef="Event_WaitForMessage" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Event_WaitForMessage" targetRef="Gateway_CheckType" />
+    <bpmn:sequenceFlow id="Flow_ToStatus" name="Status" sourceRef="Gateway_CheckType" targetRef="Task_SendStatus">
+      <bpmn:conditionExpression>=contains(messageText, "status") or contains(messageText, "حالة")</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_ToCancel" name="Cancel" sourceRef="Gateway_CheckType" targetRef="Task_CancelOrder">
+      <bpmn:conditionExpression>=contains(messageText, "cancel") or contains(messageText, "إلغاء")</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_ToOther" name="Other" sourceRef="Gateway_CheckType" targetRef="Task_HandleOther" />
+    <bpmn:sequenceFlow id="Flow_StatusDone" sourceRef="Task_SendStatus" targetRef="Gateway_Continue" />
+    <bpmn:sequenceFlow id="Flow_OtherDone" sourceRef="Task_HandleOther" targetRef="Gateway_Continue" />
+    <bpmn:sequenceFlow id="Flow_Loop" sourceRef="Gateway_Continue" targetRef="Event_WaitForMessage" />
+    <bpmn:sequenceFlow id="Flow_ToEnd" sourceRef="Task_CancelOrder" targetRef="EndEvent_1" />
+
+  </bpmn:process>
+
+  <!-- Message Definition for Correlation -->
+  <bpmn:message id="Message_CustomerUpdate" name="customer-message">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=senderPhone" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+
+</bpmn:definitions>

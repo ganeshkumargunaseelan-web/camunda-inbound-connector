@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Customer Support Process - Sample BPMN for Inbound Messaging Connector
+
+  This process demonstrates Arabic/English language routing for customer support.
+  Deploy this to Camunda 8 and configure a routing rule to trigger it.
+
+  Author: G. Ganesh Kumar, Solution Architect
+  Contact: +971-55 816 0396 | +91-95000 03051 | ganeshkumargunaseelan@gmail.com
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_CustomerSupport"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="customer-support-process" name="Customer Support Process" isExecutable="true">
+
+    <!-- Start Event: Message Received -->
+    <bpmn:startEvent id="StartEvent_MessageReceived" name="Message Received">
+      <bpmn:outgoing>Flow_ToCheckLanguage</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Gateway: Check Language -->
+    <bpmn:exclusiveGateway id="Gateway_CheckLanguage" name="Arabic Message?">
+      <bpmn:incoming>Flow_ToCheckLanguage</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToArabicTeam</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ToEnglishTeam</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Task: Route to Arabic Team -->
+    <bpmn:serviceTask id="Task_RouteArabic" name="Route to Arabic Support">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="route-to-team" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=&#34;arabic_team&#34;" target="team" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToArabicTeam</bpmn:incoming>
+      <bpmn:outgoing>Flow_ArabicToAssign</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Task: Route to English Team -->
+    <bpmn:serviceTask id="Task_RouteEnglish" name="Route to English Support">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="route-to-team" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=&#34;english_team&#34;" target="team" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToEnglishTeam</bpmn:incoming>
+      <bpmn:outgoing>Flow_EnglishToAssign</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Gateway: Merge -->
+    <bpmn:exclusiveGateway id="Gateway_Merge">
+      <bpmn:incoming>Flow_ArabicToAssign</bpmn:incoming>
+      <bpmn:incoming>Flow_EnglishToAssign</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToAssign</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- User Task: Handle Request -->
+    <bpmn:userTask id="Task_HandleRequest" name="Handle Customer Request">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="=team" />
+        <zeebe:formDefinition formKey="customer-support-form" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToAssign</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToSendResponse</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Task: Send Response -->
+    <bpmn:serviceTask id="Task_SendResponse" name="Send Response to Customer">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="send-message" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=channel" target="channel" />
+          <zeebe:input source="=senderPhone" target="recipient" />
+          <zeebe:input source="=response" target="message" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToSendResponse</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToEnd</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End Event -->
+    <bpmn:endEvent id="EndEvent_Completed" name="Request Completed">
+      <bpmn:incoming>Flow_ToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="Flow_ToCheckLanguage" sourceRef="StartEvent_MessageReceived" targetRef="Gateway_CheckLanguage" />
+    <bpmn:sequenceFlow id="Flow_ToArabicTeam" name="Yes" sourceRef="Gateway_CheckLanguage" targetRef="Task_RouteArabic">
+      <bpmn:conditionExpression>=isArabic = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_ToEnglishTeam" name="No" sourceRef="Gateway_CheckLanguage" targetRef="Task_RouteEnglish">
+      <bpmn:conditionExpression>=isArabic = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_ArabicToAssign" sourceRef="Task_RouteArabic" targetRef="Gateway_Merge" />
+    <bpmn:sequenceFlow id="Flow_EnglishToAssign" sourceRef="Task_RouteEnglish" targetRef="Gateway_Merge" />
+    <bpmn:sequenceFlow id="Flow_ToAssign" sourceRef="Gateway_Merge" targetRef="Task_HandleRequest" />
+    <bpmn:sequenceFlow id="Flow_ToSendResponse" sourceRef="Task_HandleRequest" targetRef="Task_SendResponse" />
+    <bpmn:sequenceFlow id="Flow_ToEnd" sourceRef="Task_SendResponse" targetRef="EndEvent_Completed" />
+
+  </bpmn:process>
+
+  <!-- Diagram Information -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="customer-support-process">
+      <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent_MessageReceived">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_CheckLanguage_di" bpmnElement="Gateway_CheckLanguage" isMarkerVisible="true">
+        <dc:Bounds x="245" y="95" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RouteArabic_di" bpmnElement="Task_RouteArabic">
+        <dc:Bounds x="350" y="20" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RouteEnglish_di" bpmnElement="Task_RouteEnglish">
+        <dc:Bounds x="350" y="140" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Merge_di" bpmnElement="Gateway_Merge" isMarkerVisible="true">
+        <dc:Bounds x="505" y="95" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_HandleRequest_di" bpmnElement="Task_HandleRequest">
+        <dc:Bounds x="610" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SendResponse_di" bpmnElement="Task_SendResponse">
+        <dc:Bounds x="770" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent_Completed">
+        <dc:Bounds x="932" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

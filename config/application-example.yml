@@ -1,0 +1,180 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Inbound Messaging Connector - Configuration
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Copy this file to 'application.yml' and update the values for your setup.
+# Most settings have sensible defaults - you mainly need to configure:
+#   - Database credentials
+#   - Zeebe connection
+#   - Channel API tokens
+#
+# Questions? Contact:
+#   G. Ganesh Kumar, Solution Architect
+#   UAE: +971-55 816 0396 | WhatsApp: +91-95000 03051
+#   Email: ganeshkumargunaseelan@gmail.com
+#
+# ════════════════════════════════════════════════════════════════════════════
+
+server:
+  port: 8080
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATABASE (Required)
+# ─────────────────────────────────────────────────────────────────────────────
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/inbound_connector
+    username: postgres
+    password: your_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAMUNDA 8 ZEEBE (Required)
+# ─────────────────────────────────────────────────────────────────────────────
+zeebe:
+  client:
+    # ═══ Option 1: Self-Hosted Zeebe ═══
+    broker:
+      gateway-address: localhost:26500
+    security:
+      plaintext: true
+
+    # ═══ Option 2: Camunda Cloud (SaaS) ═══
+    # Uncomment below and comment out Option 1
+    # cloud:
+    #   region: bru-2                    # Your cluster region
+    #   cluster-id: xxx-xxx-xxx          # From Camunda Cloud Console
+    #   client-id: xxx                   # API Client ID
+    #   client-secret: xxx               # API Client Secret
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MESSAGING CHANNELS
+# ─────────────────────────────────────────────────────────────────────────────
+inbound-connector:
+  channels:
+    # ═══ WhatsApp Business API ═══
+    whatsapp:
+      enabled: true
+      verify-token: your-webhook-verify-token
+      access-token: your-meta-access-token
+      phone-number-id: "123456789"
+      business-account-id: "987654321"
+      api-version: v18.0
+
+    # ═══ Telegram Bot API ═══
+    telegram:
+      enabled: true
+      bot-token: "123456:ABC-DEF"
+      webhook-secret: optional-secret-token
+
+    # ═══ SMS Providers ═══
+    sms:
+      enabled: true
+      provider: unifonic                 # unifonic | infobip | stc | etisalat
+
+      unifonic:
+        app-sid: your-unifonic-app-sid
+        sender-id: your-sender-id
+
+      infobip:
+        api-key: your-infobip-api-key
+        base-url: https://api.infobip.com
+
+      stc:
+        api-key: your-stc-api-key
+        sender-id: your-sender-id
+
+      etisalat:
+        api-key: your-etisalat-api-key
+        sender-id: your-sender-id
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FILE STORAGE
+# ─────────────────────────────────────────────────────────────────────────────
+storage:
+  type: local                            # local | minio | s3
+
+  local:
+    path: ./uploads
+
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: inbound-connector
+
+  s3:
+    region: me-south-1                   # GCC: me-south-1 (Bahrain)
+    bucket: your-bucket-name
+    access-key: your-access-key
+    secret-key: your-secret-key
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ROUTING RULES
+# ─────────────────────────────────────────────────────────────────────────────
+rules:
+  - name: support-request
+    priority: 100
+    enabled: true
+    processDefinitionKey: customer-support
+    keywords:
+      - help
+      - support
+      - مساعدة
+    startNewProcess: true
+
+  - name: order-tracking
+    priority: 90
+    enabled: true
+    processDefinitionKey: order-tracking
+    regexPatterns:
+      - "ORDER-\\d+"
+    correlationKey: "${sender.phone}"
+    startNewProcess: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY
+# ─────────────────────────────────────────────────────────────────────────────
+inbound-connector:
+  security:
+    csrf-enabled: false
+    actuator:
+      username: admin
+      password: change-in-production
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOGGING
+# ─────────────────────────────────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    io.camunda.connector.inbound: DEBUG
+  file:
+    name: ./logs/inbound-connector.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MONITORING
+# ─────────────────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
