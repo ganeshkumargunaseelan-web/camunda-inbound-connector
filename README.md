@@ -1,18 +1,41 @@
-Inbound Messaging Connector for Camunda 8
+# Inbound Messaging Connector for Camunda 8
 
-This connector is something I built to make it easier for businesses—especially in the GCC region—to connect their messaging channels directly with Camunda 8 workflows. It handles Arabic text properly, supports regional SMS providers, and gives a unified way to route incoming messages into BPMN processes.
+**Built for the GCC Region** | **Full Arabic Support** | **Regional SMS Providers**
 
-What It Does
+A middleware connector designed specifically for Middle East businesses to connect WhatsApp, Telegram, and regional SMS providers to Camunda 8 workflows.
 
-Receives messages from WhatsApp Business API, Telegram bots, and popular SMS gateways
+---
 
-Routes every message to the right Camunda 8 workflow based on rules you define
+## Why This Connector?
 
-Handles Arabic language cases like RTL text, diacritics, and Eastern numerals
+Most messaging integrations don't handle Arabic properly. This one does.
 
-Downloads and stores media attachments (local folder, MinIO, or AWS S3)
+### Arabic Language Processing
+- **Diacritics Removal (Tashkeel)** - Strips حَرَكَات for consistent keyword matching
+- **Tatweel Normalization** - Handles ـــ stretching characters
+- **Hamza Standardization** - Normalizes أ إ آ ء variants
+- **Eastern Arabic Numerals** - Converts ٠١٢٣٤٥٦٧٨٩ to 0123456789
+- **RTL Text Support** - Proper right-to-left handling throughout
 
-Correlates follow-up messages to existing process instances automatically
+### GCC Locale Detection
+Automatically detects customer country from phone number:
+| Prefix | Country | Locale |
+|--------|---------|--------|
+| +966 | Saudi Arabia | ar-SA |
+| +971 | UAE | ar-AE |
+| +965 | Kuwait | ar-KW |
+| +973 | Bahrain | ar-BH |
+| +974 | Qatar | ar-QA |
+| +968 | Oman | ar-OM |
+
+### Regional SMS Providers
+Native support for GCC SMS gateways:
+- **Unifonic** - Saudi Arabia, UAE
+- **STC Business** - Saudi Arabia
+- **Etisalat (e&)** - UAE
+- **Infobip** - Multi-region
+
+---
 
 ## Supported Channels
 
@@ -22,36 +45,61 @@ Correlates follow-up messages to existing process instances automatically
 | Telegram | Bot API                          |
 | SMS      | Unifonic, Infobip, STC, Etisalat |
 
+---
 
+## Key Features
 
+- **Rule-Based Routing** - Route messages by keywords (Arabic/English), regex, channel, or locale
+- **Process Correlation** - Link follow-up messages to running Camunda instances
+- **Media Handling** - Download and store attachments (Local, MinIO, S3)
+- **Bilingual Keywords** - Match "help" and "مساعدة" in the same rule
 
+### Routing Example
+```yaml
+rules:
+  - name: arabic-support
+    priority: 100
+    processDefinitionKey: arabic-support-process
+    locale: ar
+    keywords:
+      - مساعدة    # help
+      - دعم       # support
+      - شكوى      # complaint
+    processVariables:
+      language: arabic
+      region: gcc
+```
 
+---
 
 ## Download
 
 **[Download the latest JAR from Releases](../../releases/latest)**
 
-## Getting Started
+---
 
-### You'll Need
+## Quick Start
 
-- Java 21 (LTS release)
-- PostgreSQL 14 or newer
-- Running Camunda 8 instance (self-hosted or Cloud)
+### Requirements
+- Java 21 LTS
+- PostgreSQL 14+
+- Camunda 8 (self-hosted or Cloud)
 
 ### Setup
 
 1. Download the JAR from [Releases](../../releases/latest)
 
-2. Create a folder and copy files:
+2. Create deployment folder:
 ```bash
 mkdir inbound-connector && cd inbound-connector
-# Copy the downloaded JAR here
+```
+
+3. Copy and edit config:
+```bash
 cp config/application-example.yml application.yml
 ```
 
-3. Open `application.yml` and fill in your details:
-
+4. Configure your settings in `application.yml`:
 ```yaml
 spring:
   datasource:
@@ -71,40 +119,37 @@ inbound-connector:
       access-token: your-meta-access-token
 ```
 
-4. Start the connector:
+5. Run:
 ```bash
 java -jar inbound-messaging-connector-1.0.0.jar
 ```
 
-## Webhook URLs
+---
 
-Configure these endpoints in your channel provider dashboards:
+## Webhook Endpoints
 
-| Channel | URL | Notes |
-|---------|-----|-------|
-| WhatsApp | `/webhook/whatsapp` | GET for verification, POST for messages |
-| Telegram | `/webhook/telegram` | POST only |
-| Unifonic SMS | `/webhook/sms/unifonic` | POST only |
-| Infobip SMS | `/webhook/sms/infobip` | POST only |
-| STC SMS | `/webhook/sms/stc` | POST only |
-| Etisalat SMS | `/webhook/sms/etisalat` | POST only |
+| Channel | Endpoint | Method |
+|---------|----------|--------|
+| WhatsApp | `/webhook/whatsapp` | GET (verify), POST |
+| Telegram | `/webhook/telegram` | POST |
+| Unifonic | `/webhook/sms/unifonic` | POST |
+| Infobip | `/webhook/sms/infobip` | POST |
+| STC | `/webhook/sms/stc` | POST |
+| Etisalat | `/webhook/sms/etisalat` | POST |
 
-## Monitoring
+---
 
-The connector exposes standard Spring Boot actuator endpoints:
+## Documentation
 
-- `GET /actuator/health` - Quick health check
-- `GET /actuator/info` - Application info
-- `GET /actuator/prometheus` - Metrics for Prometheus
+| Document | Description |
+|----------|-------------|
+| [Architecture Overview](docs/architecture-overview.md) | System design and data flow |
+| [Configuration Guide](docs/configuration-guide.md) | All settings explained |
+| [API Reference](docs/api-reference.md) | Webhook formats and responses |
 
-## More Information
+---
 
-Check the `docs/` folder:
-- `architecture-overview.md` - How the system is structured
-- `configuration-guide.md` - All configuration options explained
-- `api-reference.md` - Webhook formats and responses
-
-## Version Info
+## Version
 
 | Component | Version |
 |-----------|---------|
