@@ -1,177 +1,135 @@
 # Architecture Overview
 
-This document explains how the Inbound Messaging Connector is structured and how data flows through the system.
+## System Design
 
-## High-Level Architecture
+The connector sits between messaging platforms and Camunda 8. Webhooks receive incoming messages, the routing engine decides what to do with them, and Zeebe handles the process execution.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         MESSAGING CHANNELS                                   │
-├─────────────────┬─────────────────┬─────────────────┬───────────────────────┤
-│    WhatsApp     │    Telegram     │       SMS       │      Future           │
-│   Business API  │    Bot API      │  (Multi-Provider)│    Channels          │
-└────────┬────────┴────────┬────────┴────────┬────────┴───────────────────────┘
-         │                 │                 │
-         ▼                 ▼                 ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      INBOUND MESSAGING CONNECTOR                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │  Webhook    │  │  Message    │  │   Arabic    │  │   Media     │        │
-│  │  Receivers  │──│  Parsers    │──│  Processor  │──│  Downloader │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-│         │                                                    │              │
-│         ▼                                                    ▼              │
-│  ┌─────────────────────────────────────────────────────────────────┐       │
-│  │                    MESSAGE ROUTING ENGINE                        │       │
-│  │  • Keyword Matching (Arabic/English)                            │       │
-│  │  • Regex Pattern Matching                                        │       │
-│  │  • Channel-based Routing                                         │       │
-│  │  • Locale-based Routing                                          │       │
-│  │  • Priority-based Rule Evaluation                                │       │
-│  └─────────────────────────────────────────────────────────────────┘       │
-│         │                                                                   │
-│         ▼                                                                   │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                         │
-│  │  Process    │  │  Message    │  │  Session    │                         │
-│  │  Starter    │  │  Correlator │  │  Manager    │                         │
-│  └─────────────┘  └─────────────┘  └─────────────┘                         │
-└────────┬────────────────┬────────────────┬──────────────────────────────────┘
-         │                │                │
-         ▼                ▼                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          CAMUNDA 8 ZEEBE                                     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
-│  │ Start Process   │  │ Correlate Msg   │  │  BPMN Process   │              │
-│  │ Instance        │  │ to Instance     │  │  Execution      │              │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
-└─────────────────────────────────────────────────────────────────────────────┘
+Messaging Channels          Connector                    Camunda 8
+─────────────────          ─────────                    ─────────
+WhatsApp ───┐
+            │              ┌──────────────┐
+Telegram ───┼─── POST ───> │ Webhook      │
+            │              │ Receivers    │
+SMS ────────┘              └──────┬───────┘
+                                  │
+                           ┌──────▼───────┐
+                           │ Message      │
+                           │ Parser       │
+                           └──────┬───────┘
+                                  │
+                           ┌──────▼───────┐
+                           │ Arabic       │
+                           │ Processor    │
+                           └──────┬───────┘
+                                  │
+                           ┌──────▼───────┐             ┌──────────────┐
+                           │ Routing      │────────────>│ Start Process │
+                           │ Engine       │             │ or Correlate  │
+                           └──────────────┘             └──────────────┘
 ```
 
-## Project Structure
+## Module Structure
 
-I've organized the code using hexagonal architecture (ports & adapters). This keeps the business logic clean and makes it easy to swap out components.
+The codebase follows hexagonal architecture. Business logic stays isolated from external dependencies.
 
 ```
 inbound-messaging-connector/
-├── inbound-connector-domain/          # Core models - no dependencies
-│   ├── model/                         # InboundMessage, Channel, Sender, etc.
-│   └── port/                          # Repository interfaces
 │
-├── inbound-connector-application/     # Business logic lives here
-│   ├── usecase/                       # ProcessInboundMessageUseCase
-│   ├── service/                       # MessageRoutingService, ArabicTextProcessor
-│   └── model/                         # RoutingRule configuration
+├── inbound-connector-domain/
+│   └── Core models: InboundMessage, Channel, Sender, Attachment
 │
-├── inbound-connector-infrastructure/  # All external integrations
-│   ├── channel/                       # WhatsApp, Telegram, SMS parsers
-│   ├── camunda/                       # Zeebe client wrappers
-│   ├── storage/                       # Local, MinIO, S3 adapters
-│   ├── media/                         # Media download handlers
-│   └── persistence/                   # JPA repositories and entities
+├── inbound-connector-application/
+│   └── Business logic: routing rules, Arabic processing, use cases
 │
-├── inbound-connector-api/             # REST endpoints
-│   └── webhook/                       # Controllers for each channel
+├── inbound-connector-infrastructure/
+│   └── External systems: webhook parsers, Zeebe client, storage adapters
 │
-└── inbound-connector-starter/         # Spring Boot app entry point
-    ├── config/                        # Bean configurations
-    └── resources/                     # YAML config files
+├── inbound-connector-api/
+│   └── REST controllers for each webhook endpoint
+│
+└── inbound-connector-starter/
+    └── Spring Boot application entry point
 ```
 
-## How Messages Flow Through the System
+## Message Flow
 
-### Step 1: Webhook Receives the Message
+1. **Webhook receives POST request** from WhatsApp/Telegram/SMS provider
+2. **Parser converts** provider-specific JSON to standard InboundMessage format
+3. **Arabic processor** normalizes text (removes diacritics, converts numerals)
+4. **Routing engine** evaluates rules by priority, first match wins
+5. **Zeebe client** either starts new process or correlates to existing instance
+
+## Routing Logic
+
+Rules are evaluated top-down by priority. Each rule can match on:
+
+- Keywords (Arabic or English)
+- Regex patterns
+- Channel type
+- Locale (detected from phone prefix)
+
+When a rule matches, the connector either starts a new process instance or sends a correlation message to an existing one.
+
+## Key Components
+
+| Component | Purpose |
+|-----------|---------|
+| InboundMessage | Domain entity holding message data |
+| ProcessInboundMessageUseCase | Main processing entry point |
+| MessageRoutingService | Rule evaluation logic |
+| ArabicTextProcessor | Tashkeel removal, numeral conversion |
+| ProcessStarter | Creates Zeebe process instances |
+| MessageCorrelator | Correlates messages to running processes |
+
+## Arabic Text Handling
+
+The connector normalizes Arabic input before routing:
+
+- Strips diacritical marks (harakat)
+- Removes tatweel characters
+- Standardizes hamza variants
+- Converts Eastern Arabic numerals to Western
+
+This ensures consistent keyword matching regardless of how the text was typed.
+
+## GCC Locale Detection
+
+Phone prefixes map to locales automatically:
 
 ```
-WhatsApp POST /webhook/whatsapp
-    → WhatsAppWebhookController
-    → WhatsAppMessageParser
-    → InboundMessage (domain object)
++966 → ar-SA (Saudi Arabia)
++971 → ar-AE (UAE)
++965 → ar-KW (Kuwait)
++973 → ar-BH (Bahrain)
++974 → ar-QA (Qatar)
++968 → ar-OM (Oman)
 ```
 
-Each channel has its own parser that transforms the provider-specific JSON into our standard `InboundMessage` format.
+Locale can be used in routing rules to direct messages to region-specific processes.
 
-### Step 2: Processing and Routing
+## Storage Options
 
-```
-InboundMessage
-    → ProcessInboundMessageUseCase
-        ├── ArabicTextProcessor (detects language, removes diacritics)
-        ├── MessageRepository (saves to database)
-        └── MessageRoutingService (finds matching rule)
-```
+Media attachments can be stored in:
 
-The routing engine evaluates rules in priority order. First match wins.
+- Local filesystem
+- MinIO (S3-compatible)
+- AWS S3
 
-### Step 3: Camunda Integration
-
-Depending on the routing rule configuration:
-
-```
-Rule says startNewProcess: true
-    → ProcessStarter.startProcess(processKey, variables)
-
-Rule says startNewProcess: false
-    → MessageCorrelator.correlate(messageName, correlationKey, variables)
-```
-
-## Key Classes
-
-### Domain Layer
-
-| Class | What it does |
-|-------|--------------|
-| `InboundMessage` | Main entity - holds everything about a message |
-| `Channel` | Enum for WHATSAPP, TELEGRAM, SMS_UNIFONIC, etc. |
-| `MessageType` | TEXT, IMAGE, DOCUMENT, LOCATION, CONTACT |
-| `Sender` | Customer details (phone, name, profile) |
-| `Attachment` | Media files with storage location |
-
-### Application Layer
-
-| Class | What it does |
-|-------|--------------|
-| `ProcessInboundMessageUseCase` | Main entry point for processing |
-| `MessageRoutingService` | Evaluates routing rules |
-| `ArabicTextProcessor` | Arabic text normalization |
-| `RoutingRule` | Configuration for a single routing rule |
-
-### Infrastructure Layer
-
-| Class | What it does |
-|-------|--------------|
-| `WhatsAppMessageParser` | Parses Meta's webhook format |
-| `TelegramMessageParser` | Parses Telegram's update objects |
-| `UnifonicSmsParser`, `StcSmsParser`, etc. | SMS provider parsers |
-| `ProcessStarter` | Wraps Zeebe's create process instance |
-| `MessageCorrelator` | Wraps Zeebe's message correlation |
+Configure the storage backend in application.yml.
 
 ## Tech Stack
 
-| What | Version |
-|------|---------|
+| Component | Version |
+|-----------|---------|
 | Java | 21 LTS |
 | Spring Boot | 3.3.5 |
 | Camunda | 8.4.0 |
-| Database | PostgreSQL 14+ |
-| Storage | Local / MinIO / S3 |
-| Build | Maven 3.9+ |
-
-## GCC-Specific Features
-
-I built this with Middle East businesses in mind:
-
-- **Arabic text handling**: Properly strips diacritics (tashkeel), normalizes tatweel and hamza variants
-- **Phone-based locale detection**: +966 → Saudi Arabia, +971 → UAE, etc.
-- **Right-to-left support**: Text processing preserves RTL directionality
-- **Eastern Arabic numerals**: Converts ٠١٢٣٤٥٦٧٨٩ to 0123456789 for routing
-- **Regional SMS providers**: Unifonic, Infobip, STC, Etisalat out of the box
+| PostgreSQL | 14+ |
 
 ---
 
-**Developed by:**
-
-G. Ganesh Kumar, Solution Architect
-📞 UAE: +971-55 816 0396
-📱 WhatsApp: +91-95000 03051
-📧 Email: ganeshkumargunaseelan@gmail.com
+G. Ganesh Kumar
+Solution Architect
+ganeshkumargunaseelan@gmail.com
++971-55-816-0396
