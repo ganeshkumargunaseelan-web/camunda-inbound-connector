@@ -1,24 +1,25 @@
 # Inbound Messaging Connector for Camunda 8
 
-**Built for the GCC Region** | **Full Arabic Support** | **Regional SMS Providers**
-
-A middleware connector designed specifically for Middle East businesses to connect WhatsApp, Telegram, and regional SMS providers to Camunda 8 workflows.
+A middleware connector designed for GCC-region businesses to integrate WhatsApp, Telegram, and regional SMS providers with Camunda 8 workflows. Includes full Arabic language normalization and localization support.
 
 ---
 
-## Why This Connector?
+## Why This Connector
 
-Most messaging integrations don't handle Arabic properly. This one does.
+Arabic messages differ from standard Latin-based inputs. This connector provides a reliable preprocessing layer to ensure correct interpretation and routing.
 
 ### Arabic Language Processing
-- **Diacritics Removal (Tashkeel)** - Strips حَرَكَات for consistent keyword matching
-- **Tatweel Normalization** - Handles ـــ stretching characters
-- **Hamza Standardization** - Normalizes أ إ آ ء variants
-- **Eastern Arabic Numerals** - Converts ٠١٢٣٤٥٦٧٨٩ to 0123456789
-- **RTL Text Support** - Proper right-to-left handling throughout
+
+- Diacritics removal (tashkeel)
+- Tatweel normalization
+- Hamza normalization (أ إ آ ء)
+- Eastern Arabic number conversion (٠١٢٣٤٥٦٧٨٩ → 0123456789)
+- Right-to-left text handling
 
 ### GCC Locale Detection
-Automatically detects customer country from phone number:
+
+Automatic region identification from MSISDN prefixes.
+
 | Prefix | Country | Locale |
 |--------|---------|--------|
 | +966 | Saudi Arabia | ar-SA |
@@ -28,33 +29,28 @@ Automatically detects customer country from phone number:
 | +974 | Qatar | ar-QA |
 | +968 | Oman | ar-OM |
 
-### Regional SMS Providers
-Native support for GCC SMS gateways:
-- **Unifonic** - Saudi Arabia, UAE
-- **STC Business** - Saudi Arabia
-- **Etisalat (e&)** - UAE
-- **Infobip** - Multi-region
-
 ---
 
-## Supported Channels
+## Supported Messaging Channels
 
-| Channel  | Provider                         |
-| -------- | -------------------------------- |
-| WhatsApp | Meta Business API                |
-| Telegram | Bot API                          |
-| SMS      | Unifonic, Infobip, STC, Etisalat |
+| Channel | Provider |
+|---------|----------|
+| WhatsApp | Meta Business API |
+| Telegram | Bot API |
+| SMS | Unifonic, Infobip, STC, Etisalat |
 
 ---
 
 ## Key Features
 
-- **Rule-Based Routing** - Route messages by keywords (Arabic/English), regex, channel, or locale
-- **Process Correlation** - Link follow-up messages to running Camunda instances
-- **Media Handling** - Download and store attachments (Local, MinIO, S3)
-- **Bilingual Keywords** - Match "help" and "مساعدة" in the same rule
+- Rule-based message routing
+- Arabic and English keyword matching
+- Process instance correlation
+- Media download and storage (Local, MinIO, S3)
+- Unified message normalization across all channels
 
 ### Routing Example
+
 ```yaml
 rules:
   - name: arabic-support
@@ -62,9 +58,9 @@ rules:
     processDefinitionKey: arabic-support-process
     locale: ar
     keywords:
-      - مساعدة    # help
-      - دعم       # support
-      - شكوى      # complaint
+      - مساعدة
+      - دعم
+      - شكوى
     processVariables:
       language: arabic
       region: gcc
@@ -74,32 +70,35 @@ rules:
 
 ## Download
 
-**[Download the latest JAR from Releases](../../releases/latest)**
+The latest JAR is available in the [Releases](../../releases/latest) section.
 
 ---
 
 ## Quick Start
 
 ### Requirements
+
 - Java 21 LTS
 - PostgreSQL 14+
-- Camunda 8 (self-hosted or Cloud)
+- Camunda 8 (self-hosted or cloud)
 
 ### Setup
 
-1. Download the JAR from [Releases](../../releases/latest)
+1. Create deployment folder:
 
-2. Create deployment folder:
 ```bash
-mkdir inbound-connector && cd inbound-connector
+mkdir inbound-connector
+cd inbound-connector
 ```
 
-3. Copy and edit config:
+2. Copy the configuration template:
+
 ```bash
 cp config/application-example.yml application.yml
 ```
 
-4. Configure your settings in `application.yml`:
+3. Edit `application.yml`:
+
 ```yaml
 spring:
   datasource:
@@ -119,7 +118,8 @@ inbound-connector:
       access-token: your-meta-access-token
 ```
 
-5. Run:
+4. Run the connector:
+
 ```bash
 java -jar inbound-messaging-connector-1.0.0.jar
 ```
@@ -141,15 +141,13 @@ java -jar inbound-messaging-connector-1.0.0.jar
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Architecture Overview](docs/architecture-overview.md) | System design and data flow |
-| [Configuration Guide](docs/configuration-guide.md) | All settings explained |
-| [API Reference](docs/api-reference.md) | Webhook formats and responses |
+- [Architecture Overview](docs/architecture-overview.md)
+- [Configuration Guide](docs/configuration-guide.md)
+- [API Reference](docs/api-reference.md)
 
 ---
 
-## Version
+## Version Information
 
 | Component | Version |
 |-----------|---------|
@@ -160,9 +158,10 @@ java -jar inbound-messaging-connector-1.0.0.jar
 
 ---
 
-**Developed by:**
+## Developed By
 
-G. Ganesh Kumar, Solution Architect
-📞 UAE: +971-55 816 0396
-📱 WhatsApp: +91-95000 03051
-📧 Email: ganeshkumargunaseelan@gmail.com
+**G. Ganesh Kumar**
+Solution Architect
+UAE
+ganeshkumargunaseelan@gmail.com
++971-55-816-0396
