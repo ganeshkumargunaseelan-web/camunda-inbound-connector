@@ -1,110 +1,120 @@
 # Inbound Messaging Connector for Camunda 8
 
-A middleware connector designed for GCC-region businesses to integrate WhatsApp, Telegram, and regional SMS providers with Camunda 8 workflows. Includes full Arabic language normalization and localization support.
+> Route WhatsApp, Telegram, and SMS messages into Camunda 8 workflows — with full Arabic language support for the GCC region.
+
+[![Java](https://img.shields.io/badge/Java-21_LTS-orange)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.5-green)](https://spring.io/projects/spring-boot)
+[![Camunda](https://img.shields.io/badge/Camunda-8.4.0-blue)](https://camunda.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 ---
 
-## Why This Connector
+## Overview
 
-Arabic messages differ from standard Latin-based inputs. This connector provides a reliable preprocessing layer to ensure correct interpretation and routing.
+A middleware connector that receives inbound messages from multiple channels and routes them to Camunda 8 process instances. Built specifically for GCC businesses where Arabic text handling and regional SMS providers are essential.
 
-### Arabic Language Processing
-
-- Diacritics removal (tashkeel)
-- Tatweel normalization
-- Hamza normalization (أ إ آ ء)
-- Eastern Arabic number conversion (٠١٢٣٤٥٦٧٨٩ → 0123456789)
-- Right-to-left text handling
-
-### GCC Locale Detection
-
-Automatic region identification from MSISDN prefixes.
-
-| Prefix | Country | Locale |
-|--------|---------|--------|
-| +966 | Saudi Arabia | ar-SA |
-| +971 | UAE | ar-AE |
-| +965 | Kuwait | ar-KW |
-| +973 | Bahrain | ar-BH |
-| +974 | Qatar | ar-QA |
-| +968 | Oman | ar-OM |
-
----
-
-## Supported Messaging Channels
-
-| Channel | Provider |
-|---------|----------|
-| WhatsApp | Meta Business API |
-| Telegram | Bot API |
-| SMS | Unifonic, Infobip, STC, Etisalat |
-
----
-
-## Key Features
-
-- Rule-based message routing
-- Arabic and English keyword matching
-- Process instance correlation
-- Media download and storage (Local, MinIO, S3)
-- Unified message normalization across all channels
-
-### Routing Example
-
-```yaml
-rules:
-  - name: arabic-support
-    priority: 100
-    processDefinitionKey: arabic-support-process
-    locale: ar
-    keywords:
-      - مساعدة
-      - دعم
-      - شكوى
-    processVariables:
-      language: arabic
-      region: gcc
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   WhatsApp   │     │   Telegram   │     │     SMS      │
+│  Business    │     │   Bot API    │     │  (Regional)  │
+└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
+       │                    │                    │
+       └────────────────────┼────────────────────┘
+                            ▼
+                 ┌─────────────────────┐
+                 │  Inbound Connector  │
+                 │  ─────────────────  │
+                 │  • Parse Message    │
+                 │  • Normalize Arabic │
+                 │  • Detect Locale    │
+                 │  • Route to Process │
+                 └──────────┬──────────┘
+                            ▼
+                 ┌─────────────────────┐
+                 │    Camunda 8        │
+                 │    ─────────        │
+                 │  Start Process  OR  │
+                 │  Correlate Message  │
+                 └─────────────────────┘
 ```
 
 ---
 
-## Download
+## Why This Connector?
 
-The latest JAR is available in the [Releases](../../releases/latest) section.
+| Challenge | Solution |
+|-----------|----------|
+| Arabic diacritics break keyword matching | Tashkeel removal before routing |
+| Multiple hamza forms cause mismatches | Hamza normalization (أ إ آ → ا) |
+| Eastern numerals not recognized | Convert ٠١٢٣ → 0123 automatically |
+| No GCC SMS provider support | Unifonic, STC, Etisalat built-in |
+| Manual locale detection | Auto-detect from phone prefix |
+
+---
+
+## Supported Channels
+
+| Channel | Provider | Status |
+|---------|----------|--------|
+| WhatsApp | Meta Business API | ✅ Ready |
+| Telegram | Bot API | ✅ Ready |
+| SMS | Unifonic | ✅ Ready |
+| SMS | Infobip | ✅ Ready |
+| SMS | STC Business | ✅ Ready |
+| SMS | Etisalat (e&) | ✅ Ready |
+
+---
+
+## Arabic Language Processing
+
+The connector normalizes Arabic text before routing:
+
+| Feature | Input | Output |
+|---------|-------|--------|
+| Diacritics Removal | مَرْحَبًا | مرحبا |
+| Tatweel Removal | مــــرحبا | مرحبا |
+| Hamza Normalization | أهلاً / إهلا | اهلا |
+| Number Conversion | ٠١٢٣٤٥ | 012345 |
+
+### GCC Locale Detection
+
+Automatically identifies customer region from phone number:
+
+```
++966 → Saudi Arabia (ar-SA)
++971 → UAE (ar-AE)
++965 → Kuwait (ar-KW)
++973 → Bahrain (ar-BH)
++974 → Qatar (ar-QA)
++968 → Oman (ar-OM)
+```
 
 ---
 
 ## Quick Start
 
-### Requirements
+### Prerequisites
 
 - Java 21 LTS
 - PostgreSQL 14+
-- Camunda 8 (self-hosted or cloud)
+- Camunda 8 (Self-Managed or SaaS)
 
-### Setup
+### Installation
 
-1. Create deployment folder:
+**1. Download the JAR**
 
-```bash
-mkdir inbound-connector
-cd inbound-connector
-```
+Get the latest release from [Releases](../../releases/latest)
 
-2. Copy the configuration template:
+**2. Configure**
 
-```bash
-cp config/application-example.yml application.yml
-```
-
-3. Edit `application.yml`:
+Create `application.yml`:
 
 ```yaml
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/inbound_connector
-    username: your_db_user
-    password: your_db_password
+    username: db_user
+    password: db_password
 
 zeebe:
   client:
@@ -115,10 +125,11 @@ inbound-connector:
   channels:
     whatsapp:
       enabled: true
+      verify-token: your-verify-token
       access-token: your-meta-access-token
 ```
 
-4. Run the connector:
+**3. Run**
 
 ```bash
 java -jar inbound-messaging-connector-1.0.0.jar
@@ -128,40 +139,108 @@ java -jar inbound-messaging-connector-1.0.0.jar
 
 ## Webhook Endpoints
 
-| Channel | Endpoint | Method |
-|---------|----------|--------|
-| WhatsApp | `/webhook/whatsapp` | GET (verify), POST |
-| Telegram | `/webhook/telegram` | POST |
-| Unifonic | `/webhook/sms/unifonic` | POST |
-| Infobip | `/webhook/sms/infobip` | POST |
-| STC | `/webhook/sms/stc` | POST |
-| Etisalat | `/webhook/sms/etisalat` | POST |
+Configure these URLs in your messaging provider dashboards:
+
+| Provider | Endpoint | Method |
+|----------|----------|--------|
+| WhatsApp | `https://your-domain/webhook/whatsapp` | GET, POST |
+| Telegram | `https://your-domain/webhook/telegram` | POST |
+| Unifonic | `https://your-domain/webhook/sms/unifonic` | POST |
+| Infobip | `https://your-domain/webhook/sms/infobip` | POST |
+| STC | `https://your-domain/webhook/sms/stc` | POST |
+| Etisalat | `https://your-domain/webhook/sms/etisalat` | POST |
+
+---
+
+## Routing Rules
+
+Route messages to different processes based on keywords, patterns, or locale:
+
+```yaml
+routing:
+  rules:
+    - name: arabic-support
+      priority: 100
+      keywords:
+        - مساعدة
+        - دعم
+        - شكوى
+      processDefinitionKey: arabic-support-process
+      processVariables:
+        language: arabic
+        team: gcc-support
+
+    - name: order-status
+      priority: 90
+      pattern: "order|طلب|#[0-9]+"
+      processDefinitionKey: order-tracking
+      correlate: true
+      correlationKey: senderPhone
+```
+
+---
+
+## Message Correlation
+
+Link follow-up messages to running process instances:
+
+```
+Customer: "I want to check my order"     → Starts: order-tracking process
+Customer: "Order #12345"                 → Correlates to running instance
+Customer: "Cancel it"                    → Correlates to same instance
+```
+
+Uses `senderPhone` as the default correlation key.
+
+---
+
+## Media Storage
+
+Attachments (images, documents) can be stored in:
+
+| Backend | Configuration |
+|---------|---------------|
+| Local | `storage.type: local` |
+| MinIO | `storage.type: minio` |
+| AWS S3 | `storage.type: s3` |
 
 ---
 
 ## Documentation
 
-- [Architecture Overview](docs/architecture-overview.md)
-- [Configuration Guide](docs/configuration-guide.md)
-- [API Reference](docs/api-reference.md)
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture-overview.md) | System design and data flow |
+| [Configuration](docs/configuration-guide.md) | All settings explained |
+| [API Reference](docs/api-reference.md) | Webhook formats and responses |
 
 ---
 
-## Version Information
+## Tech Stack
 
 | Component | Version |
 |-----------|---------|
-| Connector | 1.0.0 |
 | Java | 21 LTS |
 | Spring Boot | 3.3.5 |
 | Camunda | 8.4.0 |
+| PostgreSQL | 14+ |
 
 ---
 
-## Developed By
+## Use Cases
+
+- **Customer Support** — Route Arabic/English queries to appropriate teams
+- **Order Tracking** — Let customers check status via WhatsApp
+- **Appointment Booking** — Conversational scheduling flows
+- **Claims Intake (FNOL)** — Capture incident details via messaging
+- **Government Services** — Citizen service requests in Arabic
+
+---
+
+## Author
 
 **G. Ganesh Kumar**
-Solution Architect
-UAE
+Solution Architect | UAE
+
 ganeshkumargunaseelan@gmail.com
 +971-55-816-0396
