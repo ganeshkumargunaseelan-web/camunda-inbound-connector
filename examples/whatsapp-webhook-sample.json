@@ -1,0 +1,43 @@
+{
+  "_comment": "WhatsApp Cloud API Webhook - Text Message Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+  "_documentation": "https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks",
+
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "123456789012345",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "971501234567",
+              "phone_number_id": "123456789012345"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Ahmed Ali"
+                },
+                "wa_id": "971558160396"
+              }
+            ],
+            "messages": [
+              {
+                "from": "971558160396",
+                "id": "wamid.HBgLOTcxNTU4MTYwMzk2FQIAERgSQzI2NjRCRkY5MTcyNjI2NjQzAA==",
+                "timestamp": "1706706600",
+                "type": "text",
+                "text": {
+                  "body": "مرحباً، أحتاج إلى مساعدة في طلبي ORDER-123456"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

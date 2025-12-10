@@ -1,0 +1,216 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Message Routing Rules Configuration
+# ════════════════════════════════════════════════════════════════════════════
+#
+# How routing works:
+#   1. Rules are checked in priority order (highest number first)
+#   2. First rule that matches wins
+#   3. Empty keywords array [] matches everything (use for fallback)
+#
+# Each rule can match on: keywords, regex patterns, channels, locale, phone prefix
+#
+# Questions? Contact:
+#   G. Ganesh Kumar, Solution Architect
+#   UAE: +971-55 816 0396 | WhatsApp: +91-95000 03051
+#   Email: ganeshkumargunaseelan@gmail.com
+#
+# ════════════════════════════════════════════════════════════════════════════
+
+rules:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # HIGH PRIORITY RULES (100+)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: urgent-support
+    description: Urgent customer issues - highest priority
+    priority: 150
+    enabled: true
+    processDefinitionKey: urgent-support-process
+    keywords:
+      - urgent
+      - emergency
+      - عاجل              # Arabic: urgent
+      - طوارئ             # Arabic: emergency
+    processVariables:
+      priority: critical
+      sla_hours: 1
+    startNewProcess: true
+
+  - name: customer-support
+    description: General customer support requests
+    priority: 100
+    enabled: true
+    processDefinitionKey: customer-support-process
+    keywords:
+      - help
+      - support
+      - assist
+      - مساعدة            # Arabic: help
+      - دعم               # Arabic: support
+    processVariables:
+      priority: normal
+      sla_hours: 24
+    startNewProcess: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PATTERN-BASED RULES (80-99)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: order-tracking
+    description: Track orders by order number
+    priority: 95
+    enabled: true
+    processDefinitionKey: order-tracking-process
+    regexPatterns:
+      - "ORDER-\\d{6,10}"
+      - "ORD\\d+"
+      - "طلب-\\d+"         # Arabic: Order-123
+    correlationKey: "${sender.phone}"
+    startNewProcess: false
+    processVariables:
+      action: track_order
+
+  - name: booking-reference
+    description: Flight/Hotel booking inquiries
+    priority: 90
+    enabled: true
+    processDefinitionKey: booking-inquiry-process
+    regexPatterns:
+      - "[A-Z]{6}"         # 6-letter booking code
+      - "BK\\d{8}"         # BK12345678
+    startNewProcess: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CHANNEL-SPECIFIC RULES (70-79)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: whatsapp-inquiry
+    description: WhatsApp-specific handling
+    priority: 75
+    enabled: true
+    processDefinitionKey: whatsapp-inquiry-process
+    channels:
+      - WHATSAPP
+    keywords:
+      - inquiry
+      - question
+      - استفسار           # Arabic: inquiry
+    processVariables:
+      channel_source: whatsapp
+      response_channel: whatsapp
+
+  - name: telegram-feedback
+    description: Telegram feedback collection
+    priority: 75
+    enabled: true
+    processDefinitionKey: feedback-process
+    channels:
+      - TELEGRAM
+    keywords:
+      - feedback
+      - suggestion
+      - ملاحظات           # Arabic: feedback
+    processVariables:
+      channel_source: telegram
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LOCALE-SPECIFIC RULES (60-69)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: arabic-support
+    description: Arabic language support queue
+    priority: 65
+    enabled: true
+    processDefinitionKey: arabic-support-process
+    locale: ar
+    processVariables:
+      language: arabic
+      support_team: arabic_team
+    startNewProcess: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTRY-SPECIFIC RULES (50-59)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: saudi-customers
+    description: Saudi Arabia customer routing
+    priority: 55
+    enabled: true
+    processDefinitionKey: ksa-customer-process
+    senderPhonePrefix: "+966"
+    processVariables:
+      country: KSA
+      currency: SAR
+      timezone: Asia/Riyadh
+
+  - name: uae-customers
+    description: UAE customer routing
+    priority: 55
+    enabled: true
+    processDefinitionKey: uae-customer-process
+    senderPhonePrefix: "+971"
+    processVariables:
+      country: UAE
+      currency: AED
+      timezone: Asia/Dubai
+
+  - name: kuwait-customers
+    description: Kuwait customer routing
+    priority: 55
+    enabled: true
+    processDefinitionKey: kuwait-customer-process
+    senderPhonePrefix: "+965"
+    processVariables:
+      country: KWT
+      currency: KWD
+      timezone: Asia/Kuwait
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MEDIA HANDLING RULES (40-49)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: document-submission
+    description: Document uploads for processing
+    priority: 45
+    enabled: true
+    processDefinitionKey: document-review-process
+    messageTypes:
+      - DOCUMENT
+    processVariables:
+      requires_review: true
+      document_type: general
+
+  - name: image-submission
+    description: Image uploads (ID, receipts, etc.)
+    priority: 44
+    enabled: true
+    processDefinitionKey: image-processing-process
+    messageTypes:
+      - IMAGE
+    processVariables:
+      requires_ocr: true
+
+  - name: location-sharing
+    description: Location-based services
+    priority: 43
+    enabled: true
+    processDefinitionKey: location-service-process
+    messageTypes:
+      - LOCATION
+    processVariables:
+      service_type: location_based
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEFAULT FALLBACK (Priority 1)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: default-handler
+    description: Catch-all for unmatched messages
+    priority: 1
+    enabled: true
+    processDefinitionKey: general-inquiry-process
+    keywords: []                          # Empty matches everything
+    processVariables:
+      routed_by: fallback
+      needs_triage: true
+    startNewProcess: true

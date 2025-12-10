@@ -1,0 +1,12 @@
+{
+  "_comment": "STC (Saudi Telecom) SMS Webhook Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+
+  "message_id": "stc-msg-123456789",
+  "from": "+966501234567",
+  "to": "8899",
+  "text": "أريد الاستفسار عن الخدمات المتاحة",
+  "received_at": "2025-01-31T14:30:45.000Z",
+  "encoding": "UTF-8",
+  "operator": "STC"
+}

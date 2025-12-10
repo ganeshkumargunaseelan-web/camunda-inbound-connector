@@ -1,0 +1,13 @@
+{
+  "_comment": "Etisalat (e&) SMS Webhook Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+
+  "msgId": "etisalat-msg-987654321",
+  "sender": "+971501234567",
+  "shortCode": "8899",
+  "message": "مرحباً من الإمارات",
+  "receivedDate": "2025-01-31 14:30:45",
+  "operatorId": "etisalat",
+  "mcc": "424",
+  "mnc": "02"
+}

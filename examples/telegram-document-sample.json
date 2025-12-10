@@ -1,0 +1,31 @@
+{
+  "_comment": "Telegram Bot API Webhook - Document Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+
+  "update_id": 123456790,
+  "message": {
+    "message_id": 1002,
+    "from": {
+      "id": 123456789,
+      "is_bot": false,
+      "first_name": "Fatima",
+      "last_name": "Hassan",
+      "language_code": "ar"
+    },
+    "chat": {
+      "id": 123456789,
+      "first_name": "Fatima",
+      "last_name": "Hassan",
+      "type": "private"
+    },
+    "date": 1706706700,
+    "document": {
+      "file_id": "BQACAgIAAxkBAAIBZ2X...",
+      "file_unique_id": "AgADqQAD...",
+      "file_name": "application_form.pdf",
+      "mime_type": "application/pdf",
+      "file_size": 245678
+    },
+    "caption": "نموذج الطلب المكتمل"
+  }
+}

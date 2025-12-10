@@ -1,0 +1,23 @@
+{
+  "_comment": "Infobip SMS Webhook Sample",
+  "_author": "G. Ganesh Kumar | +971-55 816 0396 | ganeshkumargunaseelan@gmail.com",
+  "_documentation": "https://www.infobip.com/docs/api",
+
+  "results": [
+    {
+      "messageId": "infobip-msg-abc123def456",
+      "from": "+966501234567",
+      "to": "8899",
+      "text": "مرحبا، أحتاج مساعدة",
+      "receivedAt": "2025-01-31T14:30:45.000+0000",
+      "smsCount": 1,
+      "price": {
+        "pricePerMessage": 0.01,
+        "currency": "SAR"
+      },
+      "callbackData": "custom-data"
+    }
+  ],
+  "messageCount": 1,
+  "pendingMessageCount": 0
+}
